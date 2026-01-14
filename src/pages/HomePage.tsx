@@ -4,6 +4,7 @@ import { StyleAnalysisView } from '../components/StyleAnalysisView';
 import { useApp } from '../stores/useAppStore';
 import { parseChat, getMessengerTypeName } from '../services/chatParser';
 import { analyzeStyle } from '../services/styleAnalyzer';
+import { initializeLearningData } from '../services/aiService';
 
 export function HomePage() {
   const {
@@ -11,11 +12,14 @@ export function HomePage() {
     styleAnalysis,
     isLoading,
     error,
+    apiKey,
+    learningDataStatus,
     setParsedChat,
     setStyleAnalysis,
     setLoading,
     setError,
     setTargetSender,
+    setLearningDataStatus,
   } = useApp();
 
   const [selectedSender, setSelectedSender] = useState<string>('');
@@ -47,6 +51,16 @@ export function HomePage() {
         setLoading(true, '말투 분석 중...');
         const analysis = analyzeStyle(parsed);
         setStyleAnalysis(analysis);
+
+        // 학습 데이터 초기화
+        setLoading(true, '학습 데이터 준비 중...');
+        const learningStatus = await initializeLearningData(parsed, apiKey || undefined);
+        setLearningDataStatus({
+          hasPairs: learningStatus.pairsCount > 0,
+          hasEmbeddings: learningStatus.embeddingsReady,
+          pairsCount: learningStatus.pairsCount,
+          messagesCount: parsed.messages.filter(m => m.isTarget).length,
+        });
       }
 
       setLoading(false);
@@ -56,7 +70,7 @@ export function HomePage() {
     }
   };
 
-  const handleSenderChange = (sender: string) => {
+  const handleSenderChange = async (sender: string) => {
     setSelectedSender(sender);
     setTargetSender(sender);
 
@@ -79,6 +93,16 @@ export function HomePage() {
         // 말투 분석
         const analysis = analyzeStyle(updatedChat);
         setStyleAnalysis(analysis);
+
+        // 학습 데이터 재초기화
+        setLoading(true, '학습 데이터 준비 중...');
+        const learningStatus = await initializeLearningData(updatedChat, apiKey || undefined);
+        setLearningDataStatus({
+          hasPairs: learningStatus.pairsCount > 0,
+          hasEmbeddings: learningStatus.embeddingsReady,
+          pairsCount: learningStatus.pairsCount,
+          messagesCount: updatedChat.messages.filter(m => m.isTarget).length,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : '분석 중 오류가 발생했습니다.');
       }
@@ -160,6 +184,37 @@ export function HomePage() {
             analysis={styleAnalysis}
             parsedChat={parsedChat}
           />
+
+          {/* 학습 데이터 상태 */}
+          {learningDataStatus && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>
+                🧠 학습 데이터
+              </h3>
+
+              <div className="analysis-item">
+                <span className="analysis-label">대화쌍 (Q&A)</span>
+                <span className="analysis-value">{learningDataStatus.pairsCount}개</span>
+              </div>
+
+              <div className="analysis-item">
+                <span className="analysis-label">임베딩 준비</span>
+                <span className="analysis-value">
+                  {learningDataStatus.hasEmbeddings ? (
+                    <span style={{ color: 'var(--color-success)' }}>완료</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-tertiary)' }}>
+                      {apiKey ? '대기 중' : 'API 키 필요'}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <p style={{ marginTop: 12, fontSize: 12, color: 'var(--text-tertiary)' }}>
+                학습 데이터가 많을수록 더 자연스러운 답변을 생성할 수 있습니다.
+              </p>
+            </div>
+          )}
         </section>
       )}
 

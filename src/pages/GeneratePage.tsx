@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { EmptyState } from '../components/Layout';
 import { useApp } from '../stores/useAppStore';
-import { generateResponse } from '../services/aiService';
+import {
+  generateResponseAdvanced,
+  getLearningModeDescription,
+  type LearningMode,
+} from '../services/aiService';
 import { copyToClipboard, showToast, hapticFeedback } from '../services/appsInToss';
 
 export function GeneratePage() {
@@ -9,9 +13,12 @@ export function GeneratePage() {
     styleAnalysis,
     apiKey,
     isLoading,
+    learningMode,
+    learningDataStatus,
     generatedResponses,
     setLoading,
     setError,
+    setLearningMode,
     addGeneratedResponse,
   } = useApp();
 
@@ -33,10 +40,11 @@ export function GeneratePage() {
     hapticFeedback('light');
 
     try {
-      const response = await generateResponse({
+      const response = await generateResponseAdvanced({
         receivedMessage: inputMessage,
         styleAnalysis,
         apiKey: apiKey || undefined,
+        learningMode,
       });
 
       setCurrentResponse(response);
@@ -64,6 +72,11 @@ export function GeneratePage() {
     }
   };
 
+  const handleModeChange = (mode: LearningMode) => {
+    setLearningMode(mode);
+    hapticFeedback('light');
+  };
+
   if (!styleAnalysis) {
     return (
       <div className="page">
@@ -77,12 +90,52 @@ export function GeneratePage() {
     );
   }
 
+  const modes: LearningMode[] = ['pattern', 'fewshot', 'embedding'];
+  const modeNames: Record<LearningMode, string> = {
+    pattern: '패턴',
+    fewshot: 'Few-shot',
+    embedding: '임베딩',
+  };
+
+  const canUseEmbedding = learningDataStatus?.hasEmbeddings || false;
+  const canUseFewshot = learningDataStatus?.hasPairs || false;
+
   return (
     <div className="page">
       <h1 className="page-title">답변 생성</h1>
       <p className="page-subtitle">
         받은 메시지를 입력하면 학습된 말투로 답변을 생성합니다.
       </p>
+
+      {/* 학습 모드 선택 */}
+      <section className="section">
+        <label className="label">학습 방식</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {modes.map((mode) => {
+            const isDisabled =
+              (mode === 'fewshot' && !canUseFewshot) ||
+              (mode === 'embedding' && !canUseEmbedding);
+
+            return (
+              <button
+                key={mode}
+                className={`btn ${learningMode === mode ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => handleModeChange(mode)}
+                disabled={isDisabled}
+                style={{
+                  flex: 1,
+                  opacity: isDisabled ? 0.5 : 1,
+                }}
+              >
+                {modeNames[mode]}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-tertiary)' }}>
+          {getLearningModeDescription(learningMode)}
+        </p>
+      </section>
 
       {/* 입력 영역 */}
       <section className="section">

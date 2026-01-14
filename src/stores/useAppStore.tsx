@@ -1,5 +1,14 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react';
 import type { ParsedChat, StyleAnalysis, TossAppEnv } from '../types';
+import type { LearningMode } from '../services/aiService';
+
+// 학습 데이터 상태
+interface LearningDataStatus {
+  hasPairs: boolean;
+  hasEmbeddings: boolean;
+  pairsCount: number;
+  messagesCount: number;
+}
 
 // 상태 타입
 interface AppState {
@@ -10,6 +19,10 @@ interface AppState {
   // 설정
   apiKey: string;
   targetSender: string | null;
+  learningMode: LearningMode;
+
+  // 학습 데이터 상태
+  learningDataStatus: LearningDataStatus | null;
 
   // 로딩 상태
   isLoading: boolean;
@@ -32,6 +45,8 @@ type Action =
   | { type: 'SET_STYLE_ANALYSIS'; payload: StyleAnalysis }
   | { type: 'SET_API_KEY'; payload: string }
   | { type: 'SET_TARGET_SENDER'; payload: string }
+  | { type: 'SET_LEARNING_MODE'; payload: LearningMode }
+  | { type: 'SET_LEARNING_DATA_STATUS'; payload: LearningDataStatus }
   | { type: 'SET_LOADING'; payload: { isLoading: boolean; message?: string } }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_TOSS_ENV'; payload: TossAppEnv }
@@ -45,6 +60,8 @@ const initialState: AppState = {
   styleAnalysis: null,
   apiKey: '',
   targetSender: null,
+  learningMode: 'fewshot',
+  learningDataStatus: null,
   isLoading: false,
   loadingMessage: '',
   error: null,
@@ -80,6 +97,18 @@ function appReducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         targetSender: action.payload,
+      };
+
+    case 'SET_LEARNING_MODE':
+      return {
+        ...state,
+        learningMode: action.payload,
+      };
+
+    case 'SET_LEARNING_DATA_STATUS':
+      return {
+        ...state,
+        learningDataStatus: action.payload,
       };
 
     case 'SET_LOADING':
@@ -184,6 +213,12 @@ export function useApp() {
 
     setTargetSender: (sender: string) =>
       dispatch({ type: 'SET_TARGET_SENDER', payload: sender }),
+
+    setLearningMode: (mode: LearningMode) =>
+      dispatch({ type: 'SET_LEARNING_MODE', payload: mode }),
+
+    setLearningDataStatus: (status: LearningDataStatus) =>
+      dispatch({ type: 'SET_LEARNING_DATA_STATUS', payload: status }),
 
     setLoading: (isLoading: boolean, message?: string) =>
       dispatch({ type: 'SET_LOADING', payload: { isLoading, message } }),
